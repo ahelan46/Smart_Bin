@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Dashboard - EcoClean</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            background: linear-gradient(135deg, #141e30, #243b55);
+            min-height: 100vh;
+            color: white;
+            padding: 30px;
+        }
+
+        /* 1. Main Container - Increased to 1200px for a wider look */
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding: 10px 0;
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #ff416c, #ff4b2b);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .logout-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(255, 75, 43, 0.4);
+        }
+
+        /* 2. Increased Map Height */
+        #workerMap {
+            height: 500px; 
+            width: 100%;
+            border-radius: 25px;
+            margin-bottom: 50px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            z-index: 1;
+        }
+
+        /* 3. Centered and Enlarged Complaint Cards */
+        .complaint-card {
+            margin: 0 auto 40px auto; 
+            padding: 40px;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: transform 0.3s ease, background 0.3s ease;
+            width: 100%;
+        }
+
+        .complaint-card:hover {
+            transform: translateY(-8px);
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 25px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 15px;
+        }
+
+        .badge {
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .badge-pending { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .badge-in_progress { background: rgba(254, 202, 87, 0.2); color: #feca57; }
+        .badge-cleaned { background: rgba(29, 209, 161, 0.2); color: #1dd1a1; }
+
+        /* Grid for Content */
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        /* 4. Increased Image Dimensions */
+        .complaint-img {
+            width: 100%;
+            height: 400px;
+            border-radius: 18px;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .info-text {
+            margin: 15px 0;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .action-area {
+            margin-top: 25px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 25px;
+            border-radius: 18px;
+        }
+
+        select, .update-btn, .direction-btn {
+            width: 100%;
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            border: none;
+            transition: 0.3s;
+        }
+
+        select {
+            background: #2d3748;
+            color: white;
+            cursor: pointer;
+        }
+
+        .update-btn {
+            background: #12db98;
+            color: #1a202c;
+            cursor: pointer;
+        }
+
+        .update-btn:hover {
+            background: #0fb881;
+        }
+
+        .direction-btn {
+            background: transparent;
+            border: 2px solid #12db98;
+            color: #12db98;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .direction-btn:hover {
+            background: #12db98;
+            color: #1a202c;
+        }
+
+        @media (max-width: 900px) {
+            .details-grid { grid-template-columns: 1fr; }
+            .complaint-img { height: 300px; }
+            body { padding: 15px; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard-container">
+        <div class="top-bar">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <i class="fas fa-leaf" style="color:#12db98; font-size:32px;"></i>
+                <h1 style="margin:0; letter-spacing: 1px; font-size: 28px;">Worker Dashboard</h1>
+            </div>
+            <form action="{% url 'logout' %}" method="POST" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
+        </div>
+
+        <div id="workerMap"></div>
+
+        <h2 style="text-align: center; margin-bottom: 40px; color: #12db98; font-weight: 300;">
+            <i class="fas fa-clipboard-list"></i> Assigned Cleanup Tasks
+        </h2>
+
+        {% for complaint in complaints %}
+        <div class="complaint-card">
+            <div class="card-header">
+                <div>
+                    <span class="badge badge-{{ complaint.status }}">
+                        <i class="fas fa-circle" style="font-size: 8px; vertical-align: middle; margin-right: 5px;"></i>
+                        {{ complaint.get_status_display|default:complaint.status|title }}
+                    </span>
+                    <div style="margin-top: 10px; opacity: 0.5; font-size: 14px; font-family: monospace;">
+                        REF: {{ complaint.complaint_id|stringformat:".10s" }}
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div class="info-text" style="font-weight: bold; margin:0; color: #12db98;">
+                        <i class="fas fa-calendar-alt"></i> 
+                        {{ complaint.created_at|date:"F d, Y" }}
+                    </div>
+                    <div style="font-size: 14px; opacity: 0.7; margin-top: 5px;">Reported at {{ complaint.created_at|date:"g:i a" }}</div>
+                </div>
+            </div>
+
+            <div class="details-grid">
+                <div>
+                    <img src="{{ complaint.image.url }}" class="complaint-img" alt="Site Evidence">
+                </div>
+
+                <div>
+                    <p class="info-text">
+                        <i class="fas fa-map-marker-alt" style="color:#ff6b6b; font-size: 22px;"></i> 
+                        <strong>{{ complaint.location_name|default:"Address not provided" }}</strong>
+                    </p>
+                    
+                    {% if complaint.description %}
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                        <p style="font-size: 16px; line-height: 1.6; opacity: 0.9; margin: 0;">
+                            <i class="fas fa-comment-dots" style="margin-right: 8px; opacity: 0.5;"></i>
+                            {{ complaint.description }}
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    <div class="action-area">
+                    <form method="POST" action="{% url 'update_status' complaint.complaint_id %}" id="form-{{ complaint.complaint_id }}">
+                        {% csrf_token %}
+                        <label style="font-size: 13px; opacity: 0.7; text-transform: uppercase; font-weight: bold;">Set Progress</label>
+                        <select name="status" onchange="toggleCamera(this, '{{ complaint.complaint_id }}')">
+                            <option value="in_progress" {% if complaint.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                            <option value="cleaned" {% if complaint.status == 'cleaned' %}selected{% endif %}>Cleaned</option>
+                        </select>
+
+                        <div id="camera-container-{{ complaint.complaint_id }}" style="display: none; margin-top: 15px; text-align: center;">
+                            <video id="video-{{ complaint.complaint_id }}" width="100%" style="border-radius: 10px; background: #000;" autoplay playsinline></video>
+                            <canvas id="canvas-{{ complaint.complaint_id }}" style="display:none;"></canvas>
+                            
+                            <input type="hidden" name="cleaned_image_data" id="image-data-{{ complaint.complaint_id }}">
+
+                            <div id="preview-container-{{ complaint.complaint_id }}" style="display:none; position: relative;">
+                                <img id="preview-{{ complaint.complaint_id }}" style="width:100%; border-radius:10px; border: 2px solid #12db98;">
+                                <button type="button" onclick="deletePhoto('{{ complaint.complaint_id }}')" 
+                                        style="position: absolute; top: 10px; right: 10px; background: #ff416c; border: none; color: white; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+
+                            <button type="button" id="snap-{{ complaint.complaint_id }}" onclick="takePhoto('{{ complaint.complaint_id }}')" 
+                                    class="update-btn" style="background: #3498db; color: white;">
+                                <i class="fas fa-camera"></i> Capture Photo
+                            </button>
+                        </div>
+
+                        <button type="submit" class="update-btn">Confirm Status Change</button>
+                    </form>
+                </div>
+
+                        
+                        <a href="https://www.google.com/maps/dir/?api=1&destination={{ complaint.latitude }},{{ complaint.longitude }}" 
+                           target="_blank" class="direction-btn">
+                            <i class="fas fa-location-arrow"></i> Get Navigation Route
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="complaint-card" style="text-align: center; padding: 80px;">
+            <i class="fas fa-check-double" style="font-size: 60px; color: #12db98; margin-bottom: 25px;"></i>
+            <h2>No Tasks Found</h2>
+            <p style="opacity: 0.6; font-size: 18px;">You have no active complaints assigned to you.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        // Map Initialization (Centered on a default point if no data)
+        const map = L.map('workerMap').setView([12.9716, 77.5946], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const complaints = [
+            {% for complaint in complaints %}
+            {
+                id: "{{ complaint.complaint_id|stringformat:'.8s' }}",
+                lat: {{ complaint.latitude|default:0 }},
+                lon: {{ complaint.longitude|default:0 }},
+                location: "{{ complaint.location_name|escapejs }}",
+                img: "{{ complaint.image.url }}"
+            },
+            {% endfor %}
+        ];
+
+        const markers = [];
+        const customIcon = new L.Icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41]
+        });
+
+
+        // ... existing marker and icon definitions ...
+
+        // Define the Red Icon for the Worker
+        const redIcon = new L.Icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        // Auto-detect worker's current location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                // Add the Red Marker for the Worker
+                const workerMarker = L.marker([lat, lng], { icon: redIcon }).addTo(map);
+                workerMarker.bindPopup("<b>Your Current Location</b>").openPopup();
+
+                // Optional: Add a subtle circle around the worker to show accuracy
+                L.circle([lat, lng], { 
+                    radius: 100, 
+                    color: '#ff416c', 
+                    fillColor: '#ff416c', 
+                    fillOpacity: 0.1 
+                }).addTo(map);
+
+                // Adjust map to include worker in view if tasks exist
+                if (markers.length > 0) {
+                    markers.push(workerMarker);
+                    const group = new L.featureGroup(markers);
+                    map.fitBounds(group.getBounds().pad(0.2));
+                }
+            }, (error) => {
+                console.error("Error getting location: ", error);
+            });
+        }
+
+        complaints.forEach(c => {
+            if(c.lat !== 0 && c.lon !== 0) {
+                const marker = L.marker([c.lat, c.lon], { icon: customIcon }).addTo(map);
+                marker.bindPopup(`
+                    <div style="color: #333; font-family: sans-serif;">
+                        <img src="${c.img}" style="width:100%; height:80px; object-fit:cover; border-radius:5px; margin-bottom:5px;">
+                        <b>ID: #${c.id}</b><br>${c.location}
+                    </div>
+                `);
+                markers.push(marker);
+            }
+        });
+
+        if (markers.length > 0) {
+            const group = new L.featureGroup(markers);
+            map.fitBounds(group.getBounds().pad(0.2));
+        }
+
+        // Auto-detect worker's current location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                L.circle([lat, lng], { radius: 200, color: '#12db98' }).addTo(map).bindPopup("You are here");
+            });
+        }
+
+        function toggleUpload(selectElement, id) {
+            const container = document.getElementById('upload-container-' + id);
+            if (selectElement.value === 'cleaned') {
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        let streams = {};
+
+            async function toggleCamera(select, id) {
+                const container = document.getElementById('camera-container-' + id);
+                if (select.value === 'cleaned') {
+                    container.style.display = 'block';
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                        document.getElementById('video-' + id).srcObject = stream;
+                        streams[id] = stream;
+                    } catch (err) {
+                        alert("Camera access denied or not available.");
+                    }
+                } else {
+                    container.style.display = 'none';
+                    stopCamera(id);
+                }
+            }
+
+            function takePhoto(id) {
+                const video = document.getElementById('video-' + id);
+                const canvas = document.getElementById('canvas-' + id);
+                const preview = document.getElementById('preview-' + id);
+                const input = document.getElementById('image-data-' + id);
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                
+                const dataUrl = canvas.toDataURL('image/jpeg');
+                preview.src = dataUrl;
+                input.value = dataUrl;
+                
+                // UI Swap
+                video.style.display = 'none';
+                document.getElementById('snap-' + id).style.display = 'none';
+                document.getElementById('preview-container-' + id).style.display = 'block';
+                stopCamera(id);
+            }
+
+            function deletePhoto(id) {
+                document.getElementById('image-data-' + id).value = "";
+                document.getElementById('preview-container-' + id).style.display = 'none';
+                document.getElementById('video-' + id).style.display = 'block';
+                document.getElementById('snap-' + id).style.display = 'block';
+                toggleCamera({value: 'cleaned'}, id); // Restart camera
+            }
+
+            function stopCamera(id) {
+                if (streams[id]) {
+                    streams[id].getTracks().forEach(track => track.stop());
+                    delete streams[id];
+                }
+            }
+
+                </script>
+            </body>
+
+            </html>

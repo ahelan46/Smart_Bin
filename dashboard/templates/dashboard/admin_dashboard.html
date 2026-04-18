@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - System Controls</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #12db98;
+            --primary-dark: #0fb881;
+            --bg-dark: #1a202c;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            background: linear-gradient(135deg, #141e30, #243b55);
+            min-height: 100vh;
+            color: white;
+            font-family: 'Inter', system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .admin-card {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid var(--border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header i {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .header p {
+            opacity: 0.6;
+            margin-top: 10px;
+        }
+
+        .visibility-options {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .option-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .option-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .option-card.active {
+            border-color: var(--primary);
+            background: rgba(18, 219, 152, 0.1);
+        }
+
+        .option-card input[type="radio"] {
+            display: none;
+        }
+
+        .icon-box {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+        }
+
+        .active .icon-box {
+            background: var(--primary);
+            color: #1a202c;
+        }
+
+        .option-info {
+            flex: 1;
+        }
+
+        .option-info h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .option-info p {
+            margin: 5px 0 0;
+            font-size: 13px;
+            opacity: 0.5;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            border: none;
+            background: var(--primary);
+            color: #1a202c;
+            font-weight: 800;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .submit-btn:hover {
+            background: var(--primary-dark);
+            transform: scale(1.02);
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 25px;
+            color: white;
+            text-decoration: none;
+            opacity: 0.5;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+
+        .back-link:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="admin-card">
+        <div class="header">
+            <i class="fas fa-user-shield"></i>
+            <h1>Admin Control Panel</h1>
+            <p>Select which area types are visible to workers</p>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="visibility-options">
+                <label class="option-card {% if sys_settings.visible_area == 'public' %}active{% endif %}">
+                    <input type="radio" name="visible_area" value="public" {% if sys_settings.visible_area == 'public' %}checked{% endif %}>
+                    <div class="icon-box"><i class="fas fa-globe"></i></div>
+                    <div class="option-info">
+                        <h3>Public Area Only</h3>
+                        <p>Workers can only see public complaints</p>
+                    </div>
+                </label>
+
+                <label class="option-card {% if sys_settings.visible_area == 'private' %}active{% endif %}">
+                    <input type="radio" name="visible_area" value="private" {% if sys_settings.visible_area == 'private' %}checked{% endif %}>
+                    <div class="icon-box"><i class="fas fa-home"></i></div>
+                    <div class="option-info">
+                        <h3>Private Area Only</h3>
+                        <p>Workers can only see private complaints</p>
+                    </div>
+                </label>
+
+                <label class="option-card {% if sys_settings.visible_area == 'both' %}active{% endif %}">
+                    <input type="radio" name="visible_area" value="both" {% if sys_settings.visible_area == 'both' %}checked{% endif %}>
+                    <div class="icon-box"><i class="fas fa-layer-group"></i></div>
+                    <div class="option-info">
+                        <h3>Both Areas</h3>
+                        <p>All complaints are visible to workers</p>
+                    </div>
+                </label>
+            </div>
+
+            <button type="submit" class="submit-btn">Update System Visibility</button>
+        </form>
+
+        <a href="{% url 'submit_complaint' %}" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to Main Site
+        </a>
+
+        <form action="{% url 'logout' %}" method="POST" style="margin-top: 20px; text-align: center;">
+            {% csrf_token %}
+            <button type="submit" class="back-link" style="background: none; border: none; cursor: pointer; color: #ef4444; opacity: 1;">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </form>
+    </div>
+
+    <script>
+        document.querySelectorAll('.option-card').forEach(card => {
+            card.addEventListener('click', function () {
+                document.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Citizen Portal - Leaderboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ================= GLOBAL & THEME (Synced with Dashboard) ================= */
+        :root {
+            --bg-color: #f3f4f6;
+            --text-color: #1f2937;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --topbar-bg: #ffffff;
+            --topbar-text: #1f2937;
+            --border-color: #e5e7eb;
+            --footer-bg: #ffffff;
+            --footer-text: #1f2937;
+        }
+
+        body.dark-mode {
+            --bg-color: #141e30;
+            --text-color: #fff;
+            --sidebar-bg: rgba(255, 255, 255, 0.08);
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --topbar-bg: linear-gradient(90deg, #1f2937, #12db98);
+            --topbar-text: #ffffff;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --footer-bg: #1f2937;
+            --footer-text: #888;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* ================= TOPBAR ================= */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: var(--topbar-bg);
+            color: var(--topbar-text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: background 0.3s ease, color 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .menu-toggle {
+            position: absolute;
+            left: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: inherit;
+        }
+
+        .top-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: inherit;
+        }
+
+        .top-right {
+            position: absolute;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: inherit;
+        }
+
+        .profile-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* ================= SIDEBAR ================= */
+        .sidebar {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 260px;
+            height: calc(100vh - 60px);
+            background: var(--sidebar-bg);
+            padding: 24px 16px;
+            border-right: 1px solid var(--border-color);
+            transition: width 0.3s ease, transform 0.3s ease, background 0.3s ease;
+            z-index: 900;
+            overflow-x: hidden;
+            backdrop-filter: blur(15px);
+        }
+
+        .sidebar.hidden {
+            width: 70px;
+            padding: 24px 0;
+        }
+
+        .sidebar.hidden .text,
+        .sidebar.hidden .logo-name {
+            display: none;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px;
+            border-radius: 8px;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        .menu-item:hover {
+            background: #12db98;
+            color: #1f2937;
+        }
+
+        .sidebar.hidden .menu-item {
+            justify-content: center;
+            gap: 0;
+        }
+
+        /* Tooltip for hidden sidebar */
+        .sidebar.hidden .menu-item::after {
+            content: attr(title);
+            position: absolute;
+            left: 78px;
+            background: #1f2937;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            opacity: 0;
+            visibility: hidden;
+            transition: 0.25s;
+            border: 1px solid #12db98;
+            z-index: 9999;
+        }
+
+        .sidebar.hidden .menu-item:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* ================= MAIN CONTENT ================= */
+        .main {
+            flex: 1;
+            margin-left: 260px;
+            margin-top: 60px;
+            padding: 30px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main.full {
+            margin-left: 70px;
+        }
+
+        .leaderboard-card {
+            padding: 30px;
+            border-radius: 15px;
+            background: var(--card-bg);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(15px);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: center;
+        }
+
+        th {
+            color: #12db98;
+            font-weight: bold;
+            border-bottom: 2px solid rgba(18, 219, 152, 0.2);
+        }
+
+        tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: 0.3s;
+        }
+
+        tr:hover {
+            background: rgba(18, 219, 152, 0.05);
+        }
+
+        .rank-1 {
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .rank-2 {
+            color: #c0c0c0;
+            font-weight: bold;
+        }
+
+        .rank-3 {
+            color: #cd7f32;
+            font-weight: bold;
+        }
+
+        .badge {
+            font-weight: bold;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+
+        .bronze {
+            color: #cd7f32;
+            background: rgba(205, 127, 50, 0.1);
+        }
+
+        .silver {
+            color: #cfd8dc;
+            background: rgba(207, 216, 220, 0.1);
+        }
+
+        .gold {
+            color: #ffd700;
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        /* ================= FOOTER ================= */
+        .footer {
+            margin-left: 260px;
+            padding: 15px;
+            text-align: center;
+            background: var(--footer-bg);
+            color: var(--footer-text);
+            border-top: 1px solid var(--border-color);
+            transition: margin-left 0.3s ease, background 0.3s ease;
+        }
+
+        .footer.full {
+            margin-left: 70px;
+        }
+
+        /* Profile Dropdown */
+        .profile-menu {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            width: 200px;
+            background: var(--sidebar-bg);
+            color: var(--text-color);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1001;
+            backdrop-filter: blur(15px);
+        }
+
+        .profile-menu a {
+            display: block;
+            padding: 12px;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 240px;
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .main,
+            .footer {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+
+<script>
+    (function () {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    })();
+</script>
+
+<body class="dark-mode">
+
+    <div class="topbar">
+        <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
+        <div class="top-title">Citizen Portal</div>
+        <div class="top-right">
+            <button onclick="toggleTheme()"
+                style="background:none; border:none; color:white; cursor:pointer; font-size:18px;">🌙</button>
+            <img src="https://images.pistonheads.com/nimg/44216/DSCF0329.jpg" class="profile-img"
+                onclick="toggleProfileMenu()">
+            <p>{{ request.user.username|title }}</p>
+
+            <div class="profile-menu" id="profileMenu">
+                <div style="padding:15px; text-align:center; border-bottom:1px solid #eee;">
+                    <p><strong>{{ request.user.username }}</strong></p>
+                </div>
+                <a href="#">My Profile</a>
+                <form id="logout-form" action="{% url 'logout' %}" method="POST" style="display: none;">
+                    {% csrf_token %}
+                </form>
+                <a href="#" onclick="document.getElementById('logout-form').submit(); return false;"
+                    style="color:#ef4444;">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:30px; padding-left:10px;">
+            <i class="fas fa-leaf" style="color:#12db98; font-size:24px;"></i>
+            <span class="logo-name" style="font-size:20px; font-weight:bold; color:#12db98;">EcoClean</span>
+        </div>
+        <nav>
+            <a href="{% url 'citizen_dashboard' %}" class="menu-item" title="Dashboard">
+                <i class="fas fa-th-large"></i> <span class="text">Dashboard</span>
+            </a>
+            <a href="{% url 'submit_complaint' %}" class="menu-item" title="Report">
+                <i class="fas fa-bullhorn"></i> <span class="text">Report Garbage</span>
+            </a>
+            <a href="{% url 'my_complaints' %}" class="menu-item" title="Complaints">
+                <i class="fas fa-list"></i> <span class="text">My Complaints</span>
+            </a>
+            <a href="{% url 'leaderboard' %}" class="menu-item" title="Leaderboard">
+                <i class="fas fa-trophy"></i> <span class="text">Leaderboard</span>
+            </a>
+            <!-- <a href="{% url 'logout' %}" class="menu-item" title="Logout">
+                <i class="fas fa-sign-out-alt"></i> <span class="text">Logout</span>
+            </a> -->
+        </nav>
+    </div>
+
+    <div class="main" id="main">
+        <div class="leaderboard-card">
+            <h2>Top Contributors</h2>
+            <p style="margin-bottom: 20px;">Citizens making the city cleaner.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Username</th>
+                        <th>Points</th>
+                        <th>Level</th>
+                        <th>Badge</th>
+                    </tr>
+                </thead>
+                <tbody>
+    {% for user in users %}
+    <tr>
+        <td class="{% if user.display_rank == 1 %}rank-1{% endif %} ...">
+            {% if user.display_rank == 1 %}<i class="fas fa-crown"></i>{% endif %}
+            {{ user.display_rank }}
+        </td>
+        <td><strong>{{ user.username }}</strong></td>
+        
+        
+
+        <td>{{ user.points }}</td>
+
+        <td>
+            <span style="background: #12db98; color: #1f2937; padding: 2px 8px; border-radius: 5px; font-weight: bold; font-size: 0.9em;">
+                Lvl {{ user.level }}
+            </span>
+        </td>
+        <td>
+            {% if user.dynamic_badge %}
+                <span class="badge {{ user.dynamic_badge|lower }}">{{ user.dynamic_badge }}</span>
+            {% else %}
+                <span style="color: #888; font-style: italic;">None</span>
+            {% endif %}
+        </td>
+    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">No citizens recorded yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div id="profileModal" class="modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.8);">
+    <div class="profile-card-container" style="background: #1a1a1a; width: 400px; margin: 15% auto; border-radius: 10px; overflow: hidden; border: 2px solid #12db98; position: relative;">
+        <div style="height: 80px; background: linear-gradient(90deg, #12db98, #1f2937); padding: 10px;">
+            <h3 style="color: white; margin:0;">EcoClean PRO</h3>
+        </div>
+
+        <div style="display: flex; padding: 20px; color: white;">
+            <div style="text-align: center; margin-right: 20px;">
+                <img id="modalImg" src="" style="width: 80px; height: 80px; border: 3px solid white; border-radius: 5px; object-fit: cover;">
+                <div id="modalLvl" style="background: #ffd700; color: black; font-weight: bold; margin-top: -10px; position: relative; border-radius: 4px;">Lv. 0</div>
+            </div>
+
+            <div style="flex-grow: 1;">
+                <h2 id="modalUser" style="margin: 0;">Username</h2>
+                <p id="modalUID" style="font-size: 12px; color: #888; margin: 5px 0;">UID: 10193375950</p>
+                
+                <div style="display: flex; gap: 15px; margin-top: 15px;">
+                    <div><i class="fas fa-check-circle"></i> <span id="modalComplaints">0</span> Reports</div>
+                    <div style="cursor: pointer;" onclick="sendLike()">
+                        <i class="fas fa-thumbs-up" id="likeIcon"></i> <span id="modalLikes">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button onclick="closeModal()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">&times;</button>
+    </div>
+</div>
+
+    {% include 'dashboard/notifications_include.html' %}
+
+    <div class="footer" id="footer">
+        &copy; {% now "Y" %} Citizen Portal. Working for a cleaner city.
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById("sidebar");
+            const main = document.getElementById("main");
+            const footer = document.getElementById("footer");
+            if (window.innerWidth <= 768) {
+                sidebar.classList.toggle("show");
+            } else {
+                sidebar.classList.toggle("hidden");
+                main.classList.toggle("full");
+                if (footer) footer.classList.toggle("full");
+            }
+        }
+
+        function toggleProfileMenu() {
+            const menu = document.getElementById("profileMenu");
+            menu.style.display = (menu.style.display === "block") ? "none" : "block";
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle("dark-mode");
+            const isDark = document.body.classList.contains("dark-mode");
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            const themeBtn = document.querySelector('.top-right button');
+            if (savedTheme === 'light') {
+                document.body.classList.remove('dark-mode');
+                if (themeBtn) themeBtn.innerText = "🌙";
+            } else {
+                document.body.classList.add('dark-mode');
+                if (themeBtn) themeBtn.innerText = "☀️";
+            }
+        });
+
+        window.onclick = function (e) {
+            if (!e.target.closest('.top-right')) {
+                document.getElementById("profileMenu").style.display = "none";
+            }
+        }
+
+        let currentViewedUserId = null;
+
+function showProfile(id, name, level, complaints, likes, img, uid) {
+    currentViewedUserId = id;
+    document.getElementById("modalUser").innerText = name;
+    document.getElementById("modalLvl").innerText = "Lv. " + level;
+    document.getElementById("modalComplaints").innerText = complaints;
+    document.getElementById("modalLikes").innerText = likes;
+    document.getElementById("modalImg").src = img;
+    document.getElementById("modalUID").innerText = "UID: " + uid;
+    document.getElementById("profileModal").style.display = "block";
+}
+
+function closeModal() {
+    document.getElementById("profileModal").style.display = "none";
+}
+
+async function sendLike() {
+    const response = await fetch(`/like-user/${currentViewedUserId}/`);
+    const data = await response.json();
+    document.getElementById("modalLikes").innerText = data.total_likes;
+    document.getElementById("likeIcon").style.color = data.liked ? "#12db98" : "white";
+}
+    </script>
+</body>
+
+</html>

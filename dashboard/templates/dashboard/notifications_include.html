@@ -1,0 +1,234 @@
+<!-- Mission Alert Component -->
+<style>
+    /* ================= MISSION ALERT (TOAST) ================= */
+    #mission-alert-container {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 99999;
+        /* Extra high for visibility */
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        pointer-events: none;
+    }
+
+    .mission-toast {
+        width: 320px;
+        background: rgba(31, 41, 55, 0.9) !important;
+        /* Darker, more solid for better contrast */
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(18, 219, 152, 0.5);
+        /* Glow color */
+        border-radius: 12px;
+        padding: 16px;
+        color: white !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        pointer-events: auto;
+        animation: slideInMission 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .mission-toast::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 5px;
+        height: 100%;
+    }
+
+    .mission-toast.verified::before {
+        background: #3498db;
+    }
+
+    .mission-toast.in_progress::before {
+        background: #feca57;
+    }
+
+    .mission-toast.cleaned::before {
+        background: #12db98;
+    }
+
+    .mission-toast i.status-icon {
+        font-size: 20px !important;
+        margin-top: 2px;
+        display: block;
+    }
+
+    .mission-toast.verified i.status-icon {
+        color: #3498db !important;
+    }
+
+    .mission-toast.in_progress i.status-icon {
+        color: #feca57 !important;
+    }
+
+    .mission-toast.cleaned i.status-icon {
+        color: #12db98 !important;
+    }
+
+    .mission-content {
+        flex: 1;
+    }
+
+    .mission-content h4 {
+        margin: 0 0 6px 0 !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        color: #12db98 !important;
+        /* Standout title */
+    }
+
+    .mission-content p {
+        margin: 0 !important;
+        font-size: 13px !important;
+        opacity: 0.9 !important;
+        line-height: 1.5 !important;
+        color: white !important;
+    }
+
+    .mission-close {
+        cursor: pointer;
+        opacity: 0.6;
+        transition: 0.2s;
+        padding: 4px;
+        color: white;
+    }
+
+    .mission-close:hover {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    @keyframes slideInMission {
+        from {
+            transform: translateX(130%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes fadeOutMission {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        to {
+            transform: translateX(130%);
+            opacity: 0;
+        }
+    }
+</style>
+
+<div id="mission-alert-container"></div>
+
+<script>
+    (function () {
+        console.log("🔔 [Mission Alert] System Initialized.");
+
+        const ICON_MAP = {
+            'verified': 'fas fa-rocket',
+            'in_progress': 'fas fa-broom',
+            'cleaned': 'fas fa-check-circle'
+        };
+
+        const TITLE_MAP = {
+            'verified': 'Mission Accepted',
+            'in_progress': 'Mission In Progress',
+            'cleaned': 'Mission Completed'
+        };
+
+        const activeNotifications = new Set(); // Prevent duplicates on same page
+
+        function showMissionAlert(n) {
+            if (activeNotifications.has(n.id)) return;
+
+            const container = document.getElementById('mission-alert-container');
+            if (!container) {
+                console.warn("⚠️ [Mission Alert] Container not found!");
+                return;
+            }
+
+            console.log(`🚀 [Mission Alert] Showing: ${n.status_type}`);
+            activeNotifications.add(n.id);
+
+            const alert = document.createElement('div');
+            alert.className = `mission-toast ${n.status_type}`;
+            alert.id = `toast-${n.id}`;
+            alert.innerHTML = `
+            <i class="${ICON_MAP[n.status_type]} status-icon"></i>
+            <div class="mission-content">
+                <h4>${TITLE_MAP[n.status_type]}</h4>
+                <p>${n.message}</p>
+            </div>
+            <div class="mission-close" onclick="dismissAlert(this, ${n.id})">
+                <i class="fas fa-times"></i>
+            </div>
+        `;
+            container.appendChild(alert);
+
+            // Auto-dismiss after 12 seconds
+            setTimeout(() => {
+                if (alert.parentElement) {
+                    console.log(`⏱️ [Mission Alert] Auto-dismissing ${n.id}`);
+                    dismissAlert(alert.querySelector('.mission-close'), n.id);
+                }
+            }, 12000);
+        }
+
+        window.dismissAlert = function (element, id) {
+            const toast = element ? element.closest('.mission-toast') : document.getElementById(`toast-${id}`);
+            if (!toast) return;
+
+            toast.style.animation = 'fadeOutMission 0.6s forwards';
+
+            // Mark as read in DB if not already done
+            fetch(`/dashboard/notifications/mark-read/${id}/`)
+                .then(r => r.json())
+                .then(data => {
+                    console.log(`✅ [Mission Alert] ID ${id} marked as read.`);
+                })
+                .catch(e => console.error("❌ [Mission Alert] Error marking read:", e));
+
+            setTimeout(() => {
+                if (toast.parentElement) toast.remove();
+                activeNotifications.delete(id);
+            }, 600);
+        };
+
+        function checkNotifications() {
+            console.log("🔍 [Mission Alert] Polling for updates...");
+            fetch('/dashboard/notifications/')
+                .then(r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    return r.json();
+                })
+                .then(data => {
+                    if (data.notifications && data.notifications.length > 0) {
+                        console.log(`✨ [Mission Alert] Found ${data.notifications.length} unread updates.`);
+                        data.notifications.forEach(n => {
+                            showMissionAlert(n);
+                        });
+                    }
+                })
+                .catch(e => {
+                    console.error("❌ [Mission Alert] Polling Failed:", e);
+                });
+        }
+
+        // Faster Poll: Every 6 seconds
+        setInterval(checkNotifications, 6000);
+        // Initial check
+        setTimeout(checkNotifications, 1500);
+    })();
+</script>
